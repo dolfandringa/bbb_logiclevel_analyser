@@ -1,0 +1,111 @@
+<!doctype html>
+<html ng-app="digitalReadChart">
+  <head>
+    <title>Introduction to Charts</title>
+    <meta charset='utf-8' />
+    <meta http-equiv="X-UA-Compatible" content="chrome=1" />
+    
+    <script src="/static/bonescript.js"></script>
+    
+    <script src="/static/angular.min.js"></script>
+    <script src="/static/d3.min.js"></script>
+    <script src="/static/nv.d3.js"></script>
+    <script src="/static/angular-nvd3.min.js"></script>
+    
+    <link rel="stylesheet" href="/static/nv.d3.css">
+
+</head>
+<body>
+    <script>
+      
+      angular
+          .module('digitalReadChart', ['nvd3'])
+          .controller('MainCtrl', function($scope){
+            
+            $scope.options = {
+              chart:{
+                type: 'lineChart',
+                height: 450,
+                margin: {
+                  top: 20,
+                  right: 20,
+                  bottom: 40,
+                  left: 55
+                },
+                x: function(d){ return d.x;},
+                y: function(d){ return d.y;},
+                useInteractiveGuideline: true,
+                xAxis: {
+                  axisLabel: 'Time (min)',
+                  tickFormat: function(d){
+                    return d3.format('0.2f')(d)
+                  },
+                },
+                yDomain: [0,1],
+                yAxis:{
+                  axisLabel: 'State (on/off)',
+                  tickFormat: function(d){
+                    return d == 1 && 'on' || 'off'
+                  },
+                  axisLabelDistance: -10,
+                  tickValues: [0,1]
+                }
+              },
+              title:{
+                enable: false,
+              }
+            };
+            $scope.data = [{
+              values: [],
+              key: 'Pin state',
+              color: '#ff7f0e'
+            }];
+            
+            $scope.address = window.location.host;
+            $scope.pin = 'P9_11';
+            $scope.refresh_rate = 1000;
+            $scope.startTime = new Date().getTime();
+
+            
+            $scope.refresh = function(){
+              $scope.b.digitalRead($scope.pin, $scope.updateGraph);
+              setTimeout($scope.refresh, $scope.refresh_rate);
+            }
+            $scope.updateGraph = function(state){
+              var nowTime = new Date().getTime()
+              $scope.$apply(function(){
+                $scope.data[0].values.push({x: (nowTime - $scope.startTime)/60000, y: state.value})
+              })
+              console.log('x.value = ' + state.value);
+              console.log('x.err = ' + state.err);
+            }
+            $scope.setupBonescript = function (){
+                var handlers = {};
+                handlers.callback = function(){console.log('callback')};
+                handlers.initialized = setupInterface;
+                handlers.connecting = function(){console.log('connecting')};
+                handlers.connect_failed = function(){console.log('connect_failed')};
+                handlers.reconnect_failed = function(){console.log('reconnect_failed')};
+                handlers.disconnect = function(){console.log('disconnect')};
+                handlers.connect = function(){console.log('connect')};
+                handlers.reconnect = function(){console.log('reconnect')};
+                handlers.reconnecting = function(){console.log('reconnecting')};
+                setTargetAddress($scope.address,handlers)
+                function setupInterface(){
+                  console.log('initialized')
+                  $scope.b = require('bonescript');
+                  $scope.b.pinMode($scope.pin, $scope.b.INPUT);
+                  $scope.refresh()
+                }
+            }
+          });
+    </script>
+    <div ng-controller='MainCtrl'>
+        <label for="address">Address:</label><input name="address" ng-model="address" type="text"/>
+        <label for="pin">Pin:</label><input name="pin" ng-model="pin" type="text"/>
+        <label for="refresh_rate">Refresh rate (ms):</label><input name="refresh_rate" ng-model="refresh_rate" type="text"/>
+        <button ng-click="setupBonescript()">Start</button>
+        <nvd3 options="options" data="data"></nvd3>
+    </div>
+</body>
+</html>
